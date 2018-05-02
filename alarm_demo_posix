@@ -1,0 +1,106 @@
+#!/usr/bin/env perl
+
+
+=head1 alarm_demo_posix
+
+
+Perform cleanup actions when an alarm times out.
+
+If the processsing time ( sleep() in this case) is EQ to the alarm time, the alarm wins.
+
+
+ ~/perl $ perl alarm_demo_posix 1
+
+ Alarm is set for 2 Seconds
+ Sleep is set for 1 Seconds
+
+ Process exited normally
+
+
+
+ ~/perl $ perl alarm_demo_posix 2
+
+ Alarm is set for 2 Seconds
+ Sleep is set for 2 Seconds
+
+
+ Process has timed out!
+ Performing clean-up
+
+
+
+ ~/perl $ perl alarm_demo_posix 3
+
+ Alarm is set for 2 Seconds
+ Sleep is set for 3 Seconds
+
+
+ Process has timed out!
+ Performing clean-up
+
+
+
+=cut
+
+use warnings;
+use strict ;
+#no strict qw{vars refs};
+use POSIX qw(:signal_h);
+
+$|=1; # do not buffer output
+
+my $alarmTime = 2;
+my $sleepTime = $ARGV[0];
+
+$sleepTime = 3 unless $sleepTime;
+
+print qq{
+
+Alarm is set for $alarmTime Seconds
+Sleep is set for $sleepTime Seconds
+
+};
+
+
+eval {
+	my $mask = POSIX::SigSet->new( SIGALRM );
+	my $action =  POSIX::SigAction->new(
+		\&action,
+		$mask
+	);
+
+	my $oldaction = POSIX::SigAction->new();
+	sigaction( SIGALRM, $action, $oldaction );
+
+	eval {
+		POSIX::alarm($alarmTime);
+		POSIX::sleep($sleepTime);
+		POSIX::alarm(0);
+		print "Process exited normally\n";
+	};
+
+	POSIX::alarm(0);
+	sigaction( SIGALRM, $oldaction );  # restore original signal handler
+
+	die "$@\n" if $@;
+
+};
+
+
+if ($@) {
+	print "Error: $@\n";
+}
+
+sub action {
+	print qq{
+
+Process has timed out!
+Performing clean-up
+
+};
+
+exit 1;
+
+}
+
+
